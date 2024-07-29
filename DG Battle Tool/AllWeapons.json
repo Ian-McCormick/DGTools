@@ -1,0 +1,15 @@
+[
+    {
+        "name": "asdf",
+        "skill": "firearms",
+        "damage": [
+            "2",
+            "6",
+            "2"
+        ],
+        "lethality": "1",
+        "armorPiercing": "2",
+        "radius": "3",
+        "notes": "I hope this works\n"
+    }
+]
