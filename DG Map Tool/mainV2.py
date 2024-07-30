@@ -92,7 +92,16 @@ class DMwindow:
             self.current_action = "Create"
 
     def add_token_to_canvas(self, photo):
-        self.DMcanvas.create_image(50, 50, image=photo)
+        id = self.DMcanvas.create_image(50, 50, image=photo)
+        tag = generateOutlineTag(id)
+
+        TLx = 50-photo.width()//2
+        TLy = 50-photo.height()//2
+        BRx = 50+photo.width()//2
+        BRy = 50+photo.height()//2
+
+        self.DMcanvas.create_rectangle(TLx, TLy, BRx, BRy, 
+                                       outline="magenta", fill="", width=5, tags=(tag))
         self.updatePlayerWindow()
         return
 
@@ -124,6 +133,13 @@ class DMwindow:
                 self.start_y = event.y
     
     def on_drag(self, event):
+        if self.current_item is None:
+            return
+        
+        iTags = self.DMcanvas.itemcget(self.current_item[0], "tags")
+        if "outline" in iTags:
+            return
+
         if self.current_action == "Create":
             self.DMcanvas.coords(self.current_item, self.start_x, self.start_y, event.x, event.y)
 
@@ -131,8 +147,17 @@ class DMwindow:
             dx = event.x - self.start_x
             dy = event.y - self.start_y
             self.DMcanvas.move(self.current_item, dx, dy)
+            #move outline rectangle
+            if self.DMcanvas.type(self.current_item) == "image":
+                tag = generateOutlineTag(self.current_item[0])
+                possibleOutlines = self.DMcanvas.find_withtag(tag)
+                if len(possibleOutlines) > 0:
+                    self.DMcanvas.move(possibleOutlines[0], dx, dy)
+            
             self.start_x = event.x
             self.start_y = event.y
+        
+        self.updatePlayerWindow()
     
     def on_release(self, event):
         if self.current_action == 'create':
@@ -155,6 +180,12 @@ class DMwindow:
     def delete_shape(self, event):
         if self.current_action == "Select":
             if self.filterClosest(event):
+                if self.DMcanvas.type(self.current_item[0]) == "image":
+                    tag = generateOutlineTag(self.current_item[0])
+                    possibleOutlines = self.DMcanvas.find_withtag(tag)
+                    if len(possibleOutlines) > 0:
+                        self.DMcanvas.delete(possibleOutlines[0])
+
                 self.DMcanvas.delete(self.current_item)
                 self.current_item = None
         self.updatePlayerWindow()
@@ -171,6 +202,10 @@ class DMwindow:
             if itemType == 'rectangle':
                 if options['outline'][4] == 'green':
                     self.PlayerCanvas.create_rectangle(*coords, fill="black", outline='')
+
+                if options['outline'][4] == "magenta":
+                    self.PlayerCanvas.create_rectangle(*coords, fill="", outline="magenta", width=5)
+
             if itemType == "oval":
                 if options['outline'][4] == 'green':
                     self.PlayerCanvas.create_oval(*coords, fill="black", outline='')
@@ -187,7 +222,9 @@ def browse_files(SBM):
                     title="Select Battle Map")
     SBM.config(text = filename.split("/")[-1])
     SBM_full_text = filename
-    
+
+def generateOutlineTag(id):
+    return str(id) + "outline"
 def main():
     global SBM_full_text
     SBM_full_text = None
