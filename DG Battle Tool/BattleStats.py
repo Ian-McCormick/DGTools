@@ -7,7 +7,7 @@ import re
 
 from MobCreator import *
 from WeaponCreator import *
-from mainViews import *
+#from mainViews import *
 from Player import *
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
@@ -496,4 +496,4 @@ class Main:
         with open(CURRENT_DIRECTORY + "AllWeapons.json", "w+") as f:
             json.dump(weaponDicts, f, indent=4)
         
-Main()
+#Main()
