@@ -210,6 +210,7 @@ class battleView:
         name_label_tag_value = "nameValue"
         selectedStats = ["hitpoints", "willpower", "sanity", "breakingpoint"]
         imageRowHeight = len(selectedStats) + 2
+
         #clear all previous widgets
         for w in self.detailedPlayerFrame.winfo_children():
             #just in case we need to do something with previous preview Window
@@ -224,11 +225,11 @@ class battleView:
         image = Image.open(player.iconPath).resize((200, 200))
         self.playerBigPhotos[name] = ImageTk.PhotoImage(image)
         photoLabel = tk.Label(self.detailedPlayerFrame, image=self.playerBigPhotos[name])
-        photoLabel.grid(row=0, column=0, columnspan=3, rowspan=imageRowHeight, sticky="W")
+        photoLabel.grid(row=0, column=0, columnspan=4, rowspan=imageRowHeight, sticky="W")
 
         #draw name and big stats
         nameLabel = tk.Label(self.detailedPlayerFrame, text=player.name, font=("Arial", 16), name=name_label_tag_value)
-        nameLabel.grid(row=0, column=4, sticky="NW")
+        nameLabel.grid(row=0, column=3, sticky="NW")
 
         #draw selected derived stats
         row = 1
@@ -236,25 +237,36 @@ class battleView:
             if atr in selectedStats:
                 labelText = atr + ": " + getattr(player.derived, atr)
                 label = tk.Label(self.detailedPlayerFrame, text=labelText)
-                label.grid(row=row, column=4, sticky="w")
+                label.grid(row=row, column=3, sticky="w")
                 row += 1
 
         #draw armor stat
         labelText = "Armor: " + player.armor
         label = tk.Label(self.detailedPlayerFrame, text=labelText)
-        label.grid(row=row, column=4, sticky="w")
+        label.grid(row=row, column=3, sticky="w")
 
         #draw stats and skills
-        tk.Label(self.detailedPlayerFrame, text="STATISTICS", font=("Arial", 10, "bold")).grid(row=imageRowHeight+1, column=0, sticky="W")
         rowsOfSkills = len(vars(player.statistics))
-        startRow = imageRowHeight + 2
+        skillsWidth = ((len(vars(player.skills))+1) // rowsOfSkills) + 3
+        skillsFrame = tk.Frame(self.detailedPlayerFrame, highlightbackground="black", highlightthickness=1)
+        skillsFrame.grid(row=imageRowHeight+1, column=0, columnspan=skillsWidth)
+        tk.Label(skillsFrame, text="STATISTICS", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="W")
+        tk.Label(skillsFrame, text="SKILLS", font=("Arial", 10, "bold")).grid(row=0, column=1, sticky="W")
+
+        startRow = 1
         offset = 0
         for atr in vars(player.statistics):
             labelText = atr + ": " + getattr(player.statistics, atr)
-            label = tk.Label(self.detailedPlayerFrame, text=labelText)
+            label = tk.Label(skillsFrame, text=labelText, padx=5)
             label.grid(row=startRow + (offset % rowsOfSkills), column=offset // rowsOfSkills, sticky="w")
             offset += 1
-        return
+        
+        for atr in vars(player.skills):
+            labelText = atr + ": " + getattr(player.skills, atr)
+            label = tk.Label(skillsFrame, text=labelText, padx=5)
+            label.grid(row=startRow + (offset % rowsOfSkills), column=offset // rowsOfSkills, sticky="w")
+            offset += 1
+        
 
 root = tk.Tk()
 players = BattleStats.Main.loadPlayerObjectJson(None, CURRENT_DIRECTORY +"AllFriendlies.json")
