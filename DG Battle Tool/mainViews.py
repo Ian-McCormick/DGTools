@@ -2,9 +2,11 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import os
+import time
 
 import Player
-import BattleStats
+import MobCreator
+#import BattleStats
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
 
@@ -140,16 +142,26 @@ class battleView:
         if len(players) == 0:
             return
         self.loadedPlayers = players
+        self.playerTakenAction = {}
+        self.previewFrameLinks = {}
+        self.offensiveActions = ["Aim", "Attack", "Called Shot", "Disarm", "Pin"]
+        self.defensiveActions = ["Dodge", "Escape", "Fight Back", "Move", "Wait", "Other"]
+        self.actionSeperators = ["-OFFENSIVE ACTIONS-", "-DEFENSIVE ACTIONS-"]
+        self.combinedActions = [self.actionSeperators[0]] + self.offensiveActions + [self.actionSeperators[1]] + self.defensiveActions
+
+        self.allWeapons = MobCreator.MobCreator.loadWeapons(None)
         self.playerPhotos = {}
         self.playerBigPhotos = {}
+
         self.battleView = tk.Toplevel(parent)
+        self.battleView.geometry("1000x1000")
 
         #create frame/canvas to place all player canvases
         self.previewCanvas = tk.Canvas(self.battleView)
         scrollbar = ttk.Scrollbar(self.battleView, orient="vertical", command=self.previewCanvas.yview)
 
-        self.previewCanvas.grid(row=0, column=0, rowspan=len(players), sticky="NSEW", padx=0)
-        scrollbar.grid(row=0, column=1, sticky="NS", rowspan=len(players))
+        self.previewCanvas.grid(row=0, column=0, sticky="NSEW", padx=0)
+        scrollbar.grid(row=0, column=1, sticky="NS")
         self.previewCanvas.configure(yscrollcommand=scrollbar.set)
 
         self.previewFrame = tk.Frame(self.previewCanvas)
@@ -161,15 +173,17 @@ class battleView:
         row = 0
         #populate player previews
         for p in self.loadedPlayers:
+            self.playerTakenAction[p.name] = False
             playerFrame = self.displayPlayerPreview(p)
             playerFrame.grid(row=row, column=0, sticky="NESW")
+            self.previewFrameLinks[p.name] = playerFrame
             row += 1
         
         #bind canvas width to frame size
         self.previewCanvas.bind("<Configure>", lambda event: self.previewCanvas.configure(width=self.previewFrame.winfo_width()))
 
         self.detailedPlayerFrame = tk.Frame(self.battleView)
-        self.detailedPlayerFrame.grid(row=0, column=2)
+        self.detailedPlayerFrame.grid(row=0, column=2, rowspan=2)
 
     def displayPlayerPreview(self, player:Player) -> tk.Frame:
         frame = tk.Frame(self.previewFrame, highlightbackground="black", highlightthickness=1)
@@ -179,25 +193,30 @@ class battleView:
         image = Image.open(player.iconPath).resize((75, 75))
         self.playerPhotos[name] = ImageTk.PhotoImage(image)
         photoLabel = tk.Label(frame, image=self.playerPhotos[name])
-        photoLabel.grid(row=0, column=0, rowspan=3, sticky="W")
+        photoLabel.grid(row=0, column=0, rowspan=4, sticky="W")
 
         #display stat labels
         nameTag = tk.Label(frame, text="Name:")
         hpTag = tk.Label(frame, text="HP:")
         sanTag = tk.Label(frame, text="SAN:")
+        actionTakenTag = tk.Label(frame, text="Action Taken: ")
 
         nameTag.grid(row=0, column=1, sticky="W")
         hpTag.grid(row=1, column=1, sticky="W")
         sanTag.grid(row=2, column=1, sticky="W")
+        actionTakenTag.grid(row=3, column=1, sticky="w")
 
         #display stat number
         nameStat = tk.Label(frame, text=player.name, name="nameValue")
         hpStat = tk.Label(frame, text=player.derived.hitpoints)
         sanStat = tk.Label(frame, text=player.derived.sanity)
+        color = "red" if self.playerTakenAction[name] else "green"
+        actionTakenStat = tk.Label(frame, text=str(self.playerTakenAction[name]), fg = color, name="actionTaken")
 
         nameStat.grid(row=0, column=2, sticky="W")
         hpStat.grid(row=1, column=2, sticky="W")
         sanStat.grid(row=2, column=2, sticky="W")
+        actionTakenStat.grid(row=3, column=2, sticky="w")
 
         #bind deltailed view to clicking anywhere in preview
         for w in frame.winfo_children():
@@ -207,6 +226,7 @@ class battleView:
         return frame
 
     def displaySelectedPlayer(self, player:Player, newPreviewFrame:tk.Frame):
+        startTime = time.time()
         name_label_tag_value = "nameValue"
         selectedStats = ["hitpoints", "willpower", "sanity", "breakingpoint"]
         imageRowHeight = len(selectedStats) + 2
@@ -215,7 +235,8 @@ class battleView:
         for w in self.detailedPlayerFrame.winfo_children():
             #just in case we need to do something with previous preview Window
             if str(w).split(".")[-1] == name_label_tag_value:
-                print(end="")
+                prevName = w.cget("text")
+
             w.destroy()
         
         #populate with new player info
@@ -246,29 +267,99 @@ class battleView:
         label.grid(row=row, column=3, sticky="w")
 
         #draw stats and skills
+        self.drawSkillsStats(player, imageRowHeight+1)
+        self.drawWeaponTable(player, imageRowHeight+2)
+        self.drawActionOptions(player, imageRowHeight+3)
+
+        endTime = time.time()
+        print(endTime-startTime)
+
+        #add weapons
+    
+    def drawSkillsStats(self, player, mainRow, startColumn = 0):
+        #define how tall and wide we want the table
         rowsOfSkills = len(vars(player.statistics))
         skillsWidth = ((len(vars(player.skills))+1) // rowsOfSkills) + 3
+
+        #make the Frame
         skillsFrame = tk.Frame(self.detailedPlayerFrame, highlightbackground="black", highlightthickness=1)
-        skillsFrame.grid(row=imageRowHeight+1, column=0, columnspan=skillsWidth)
+        skillsFrame.grid(row=mainRow, column=0, columnspan=skillsWidth)
+
         tk.Label(skillsFrame, text="STATISTICS", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="W")
         tk.Label(skillsFrame, text="SKILLS", font=("Arial", 10, "bold")).grid(row=0, column=1, sticky="W")
 
         startRow = 1
         offset = 0
+        
+        #draw all of the stats
         for atr in vars(player.statistics):
             labelText = atr + ": " + getattr(player.statistics, atr)
             label = tk.Label(skillsFrame, text=labelText, padx=5)
             label.grid(row=startRow + (offset % rowsOfSkills), column=offset // rowsOfSkills, sticky="w")
             offset += 1
         
+        #draw all the skills
         for atr in vars(player.skills):
             labelText = atr + ": " + getattr(player.skills, atr)
             label = tk.Label(skillsFrame, text=labelText, padx=5)
             label.grid(row=startRow + (offset % rowsOfSkills), column=offset // rowsOfSkills, sticky="w")
             offset += 1
-        
+        return
 
-root = tk.Tk()
-players = BattleStats.Main.loadPlayerObjectJson(None, CURRENT_DIRECTORY +"AllFriendlies.json")
-battleView(root, players)
-root.mainloop()
+    def drawWeaponTable(self, player: Player, startRow, startColumn = 0):
+        #initialize variables and frame
+        columnLabels = {"Name":"name", "Skill":"skill", "Damage":"damage", "Lethality":"lethality", "Armor Piercing":"armorPiercing", "Radius":"radius", "Notes":"notes"}
+        columnKeys = list(columnLabels.keys())
+        weaponList = tk.Frame(self.detailedPlayerFrame, pady=5)
+        weaponList.grid(row=startRow, column=startColumn, columnspan=len(columnLabels), sticky="w")
+
+        #draw column labels
+        curCol = 0
+        for labelText in columnKeys:
+            tk.Label(weaponList, text=labelText, highlightbackground="black", highlightthickness=1).grid(row=0, column=curCol, sticky="NESW")
+            curCol += 1
+
+        #draw the weapons
+        curRow = 1
+        for weapon in self.allWeapons:
+            if weapon.name in player.weaponInventory:
+                curCol=0
+                for key in columnKeys:
+                    #get value for label
+                    if key == "Damage":
+                        dmgNumbers = getattr(weapon, columnLabels[key])
+                        labelText = dmgNumbers[0] + "d" + dmgNumbers[1]
+                        if dmgNumbers[2] != "0":
+                            labelText += " + " + dmgNumbers[2]
+                    else:
+                        labelText = getattr(weapon, columnLabels[key])
+                
+                    tk.Label(weaponList, text=labelText, highlightbackground="black", highlightthickness=1).grid(row=curRow, column=curCol, sticky="NESW")
+                    curCol += 1
+                curRow += 1
+
+        return
+        
+    def drawActionOptions(self, player, startRow, startColumn = 0):
+        actionLabel = tk.Label(self.detailedPlayerFrame, text="Action Choice: ")
+        actionLabel.grid(row=startRow, column=0, sticky="w")
+
+        actionOption = tk.StringVar()
+        actionOption.set(self.combinedActions[2])   #default to Attack
+
+        actionMenu = tk.OptionMenu(self.detailedPlayerFrame, actionOption, *self.combinedActions)
+        actionMenu.grid(row=startRow, column = 1, sticky="w")
+
+        actionButton = tk.Button(self.detailedPlayerFrame, text="Execute", command=lambda:self.executeAction(player, actionOption.get()))
+        actionButton.grid(row=startRow, column=2, sticky="w")
+
+    def executeAction(self, player, actionChoice):
+        if actionChoice in self.actionSeperators:
+            return
+        print(actionChoice)
+
+    
+#root = tk.Tk()
+#players = BattleStats.Main.loadPlayerObjectJson(None, CURRENT_DIRECTORY +"AllFriendlies.json")
+#battleView(root, players)
+#root.mainloop()

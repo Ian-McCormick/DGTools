@@ -7,7 +7,7 @@ import re
 
 from MobCreator import *
 from WeaponCreator import *
-#from mainViews import *
+from mainViews import *
 from Player import *
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
@@ -23,7 +23,7 @@ class Main:
 
         self.allEnemies = self.loadPlayerObjectJson(CURRENT_DIRECTORY + "AllEnemies.json")
         self.allFriendlies = self.loadPlayerObjectJson(CURRENT_DIRECTORY + "AllFriendlies.json")
-        self.allWeapons = MobCreator.loadWeapons(None)
+        self.allWeapons = MobCreator.MobCreator.loadWeapons(None)
 
         #create labels for entries
         for i in range(len(columnLabels)):
@@ -422,7 +422,7 @@ class Main:
                     playerIndex = i
                     break
         
-        factory = MobCreator(self.setupWindow)
+        factory = MobCreator.MobCreator(self.setupWindow)
         factory.creationWindow(player)
         try:
             name = factory.finalMob.name
@@ -496,4 +496,4 @@ class Main:
         with open(CURRENT_DIRECTORY + "AllWeapons.json", "w+") as f:
             json.dump(weaponDicts, f, indent=4)
         
-#Main()
+Main()
