@@ -187,7 +187,7 @@ class MobCreator:
             errorLabel = tk.Label(window, text="Error: invalid input")
             errorLabel.grid(row=3, column=0)
 
-    def loadWeapons(self):
+    def loadWeapons(self) -> list[Weapon]:
         try:
             with open(CURRENT_DIRECTORY + "AllWeapons.json", "r") as f:
                 weaponDicts = json.load(f)

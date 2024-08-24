@@ -7,14 +7,14 @@ import re
 
 from MobCreator import *
 from WeaponCreator import *
-from mainViews import *
+#from mainViews import *
 from Player import *
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
 DEFAULT_IMAGE_PATH = CURRENT_DIRECTORY + "Photos\\default.png"
 SAMPLE = CURRENT_DIRECTORY + "Copy of Arnoux, Zachary S..pdf"
 FONT = ("Arial", 10)
-      
+
 class Main:
     def __init__(self):
         self.setupWindow = tk.Tk()
@@ -496,4 +496,4 @@ class Main:
         with open(CURRENT_DIRECTORY + "AllWeapons.json", "w+") as f:
             json.dump(weaponDicts, f, indent=4)
         
-Main()
+#Main()
