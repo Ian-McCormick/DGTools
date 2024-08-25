@@ -169,6 +169,41 @@ class actionFlowInformation:
             return "Unarmed"
         return self.weapon.name
     
+    def getWeaponSkill(self):
+        try:
+            return self.weapon.skill
+        except:
+            return "N/A"
+        
+    def getSkillStat(self):
+        try:
+            wepSkill = self.weapon.skill
+            return getattr(self.executor.playerSheet.skills, wepSkill)
+        except:
+            return "N/A"
+        
+    def getWeaponDamage(self):
+        try:
+            rawDamage = self.weapon.damage
+            text = rawDamage[0] + "d" + rawDamage[1]
+            if rawDamage[2] != "0":
+                text += " + " + rawDamage[2]
+            return text
+        except:
+            return "N/A"
+        
+    def getTargetArmor(self):
+        try:
+            return self.target.playerSheet.armor
+        except:
+            return "N/A"
+        
+    def getTargetHealth(self):
+        try:
+            return self.target.playerSheet.derived.hitpoints
+        except:
+            return "N/A"
+    
     def getWeaponList(self):
         return ["Unarmed"] + self.executor.playerSheet.weaponInventory
 
@@ -254,13 +289,15 @@ class battleView:
 
         #bind deltailed view to clicking anywhere in preview
         for w in frame.winfo_children():
-            w.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player, frame))
-        frame.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player, frame))
+            w.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player.playerSheet.name, frame))
+        frame.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player.playerSheet.name, frame))
 
         return frame
 
-    def displaySelectedPlayer(self, player:playerBattleInfo, newPreviewFrame:tk.Frame):
+    def displaySelectedPlayer(self, playerName:str, newPreviewFrame:tk.Frame):
+        player:playerBattleInfo = self.loadedPlayers[playerName]
         player.takenAction = True
+
         for w in player.previewFrame.winfo_children():
             if str(w).split(".")[-1] == "actionTaken":
                 color = "red" if player.takenAction else "green"
@@ -385,22 +422,6 @@ class battleView:
                 curRow += 1
             except:
                 continue
-        """for weapon in self.allWeapons:
-            if weapon.name in player.playerSheet.weaponInventory:
-                curCol=0
-                for key in columnKeys:
-                    #get value for label
-                    if key == "Damage":
-                        dmgNumbers = getattr(weapon, columnLabels[key])
-                        labelText = dmgNumbers[0] + "d" + dmgNumbers[1]
-                        if dmgNumbers[2] != "0":
-                            labelText += " + " + dmgNumbers[2]
-                    else:
-                        labelText = getattr(weapon, columnLabels[key])
-                
-                    tk.Label(weaponList, text=labelText, highlightbackground="black", highlightthickness=1).grid(row=curRow, column=curCol, sticky="NESW")
-                    curCol += 1
-                curRow += 1"""
         return
         
     def drawActionOptions(self, player, startRow, startColumn = 0):
@@ -472,12 +493,14 @@ class battleView:
         
         try:
             self.actionInformation.target = self.loadedPlayers[targetName]
+            print("Taken Action: " + str(self.actionInformation.target.takenAction))
         except:
             self.actionInformation.target = None
         self.dodgeSelection()
 
     def dodgeSelection(self):
         self.clearWalkthrough()
+        self.actionInformation.didTargetDodge = False
         questionLabel = tk.Label(self.actionWalkthrough, text="Does the target attempt to dodge?", font="helvetica 10 bold")
         questionLabel.grid(row=0, column=0, columnspan=2)
 
@@ -485,21 +508,105 @@ class battleView:
             warningLabel = tk.Label(self.actionWalkthrough, text="Target has already taken action\n RaW they cannot dodge", fg="red")
             warningLabel.grid(row=1, column=0, columnspan=2)
 
-        yesButton = tk.Button(self.actionWalkthrough, text="Yes", pady=5)
+        yesButton = tk.Button(self.actionWalkthrough, text="Yes", pady=5, command=lambda: self.executeDodgeRoll())
         yesButton.grid(row = 2, column=0, sticky="EW")
-        noButton = tk.Button(self.actionWalkthrough, text="No", pady=5)
+        noButton = tk.Button(self.actionWalkthrough, text="No", pady=5, command=lambda:self.attackRoll())
         noButton.grid(row=2, column=1, sticky="EW")
 
         tk.Label(self.actionWalkthrough, pady=10).grid(row=3, column=0)
         backButton = tk.Button(self.actionWalkthrough, text="Go Back (Target Selection)", command=self.targetSelection)
         backButton.grid(row=4, column=0, columnspan=2)
+
+    def executeDodgeRoll(self):
+        self.clearWalkthrough()
+        questionLabel = tk.Label(self.actionWalkthrough, text="Did the target succeed their dodge roll?", font="helvetica 10 bold")
+        questionLabel.grid(row=0, column=0, columnspan=2)
+
+        yesButton = tk.Button(self.actionWalkthrough, text="Yes", pady=5, command=lambda:self.saveDodge(True))
+        yesButton.grid(row = 2, column=0, sticky="EW")
+        noButton = tk.Button(self.actionWalkthrough, text="No", pady=5, command=lambda:self.attackRoll())
+        noButton.grid(row=2, column=1, sticky="EW")
+
+        tk.Label(self.actionWalkthrough, pady=10).grid(row=3, column=0)
+        backButton = tk.Button(self.actionWalkthrough, text="Go Back (Target Dodge)", command=self.dodgeSelection)
+        backButton.grid(row=4, column=0, columnspan=2)
+
+    def saveDodge(self, dodgeSuccess):
+        self.actionInformation.didTargetDodge = True
+        if dodgeSuccess:
+            self.finalizeAction()
+        else:
+            self.attackRoll()
+
+    def attackRoll(self):
+        self.clearWalkthrough()
+        weaponNameLabel = tk.Label(self.actionWalkthrough, text="Selected Weapon: " + self.actionInformation.getWeaponName())
+        weaponNameLabel.grid(row=0, column=0, columnspan=2)
+
+        skillLabel = tk.Label(self.actionWalkthrough, text="Nominal Skill: " + self.actionInformation.getWeaponSkill())
+        skillLabel.grid(row=1, column=0,columnspan=2)
+
+        skillStat = tk.Label(self.actionWalkthrough, text = "Skill Stat: " + self.actionInformation.getSkillStat())
+        skillStat.grid(row=2, column=0, columnspan=2)
+
+        questionLabel = tk.Label(self.actionWalkthrough, text="Does the Player's attack succeed?", font="helvetica 10 bold")
+        questionLabel.grid(row=3, column=0, columnspan=2)
+
+        yesButton = tk.Button(self.actionWalkthrough, text="Yes", pady=5, command=self.rollDamage)
+        yesButton.grid(row = 4, column=0, sticky="EW")
+        noButton = tk.Button(self.actionWalkthrough, text="No (FINAL)", pady=5, command=self.finalizeAction)
+        noButton.grid(row=4, column=1, sticky="EW")
+
+        tk.Label(self.actionWalkthrough, pady=10).grid(row=5, column=0)
+        if self.actionInformation.didTargetDodge:
+            backCommand = self.executeDodgeRoll
+            backText = "(Dodge Roll)"
+        else:
+            backCommand = self.dodgeSelection
+            backText = "(Dodge Choice)"
+
+        backButton = tk.Button(self.actionWalkthrough, text="Go Back " + backText, command=backCommand)
+        backButton.grid(row=6, column=0, columnspan=2)
+
+    def rollDamage(self):
+        self.clearWalkthrough()
+
+        titleLabel = tk.Label(self.actionWalkthrough, text="Calculate Damage", font="helvetica 10 bold")
+        titleLabel.grid(row=0, column=0, columnspan=2)
+
+        damageLabel = tk.Label(self.actionWalkthrough, text="Nominal Damage: " + self.actionInformation.getWeaponDamage())
+        damageLabel.grid(row=1, column=0, columnspan=2)
+
+        armorLabel = tk.Label(self.actionWalkthrough, text="Target Armor: " + self.actionInformation.getTargetArmor())
+        armorLabel.grid(row=2, column=0, columnspan=2)
+
+        damageRollLabel = tk.Label(self.actionWalkthrough, text="Target New Health: ")
+        damageRollLabel.grid(row=3, column=0)
+
+        damageEntry = tk.Entry(self.actionWalkthrough)
+        damageEntry.insert(0, self.actionInformation.getTargetHealth())
+        damageEntry.grid(row=3, column=1)
+
+        finalizeButton = tk.Button(self.actionWalkthrough, text="FINALIZE", fg="red", command=self.finalizeAction)
+        finalizeButton.grid(row=4, column=0, columnspan=2)
+
+        tk.Label(self.actionWalkthrough, pady=10).grid(row=3, column=0)
+        backButton = tk.Button(self.actionWalkthrough, text="Go Back (Attack Roll)", command=lambda:self.attackRoll())
+        backButton.grid(row=5, column=0, columnspan=2)
+
+        return
     
+    def finalizeAction(self):
+        print("Finalize")
+        return
+
     def clearWalkthrough(self):
         for w in self.actionWalkthrough.winfo_children():
             w.destroy()
 
-
     
+
+
 root = tk.Tk()
 root.wm_state('iconic')
 players = BattleStats.Main.loadPlayerObjectJson(None, CURRENT_DIRECTORY +"AllFriendlies.json")
