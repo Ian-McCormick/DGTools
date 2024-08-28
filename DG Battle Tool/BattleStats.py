@@ -5,15 +5,21 @@ import json
 import copy
 import re
 
+from enum import Enum
+
 from MobCreator import *
 from WeaponCreator import *
-#from mainViews import *
+from mainViews import *
 from Player import *
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
 DEFAULT_IMAGE_PATH = CURRENT_DIRECTORY + "Photos\\default.png"
 SAMPLE = CURRENT_DIRECTORY + "Copy of Arnoux, Zachary S..pdf"
 FONT = ("Arial", 10)
+
+class MobType(Enum):
+    FRIENDLY = 1
+    ENEMY = 2
 
 class Main:
     def __init__(self):
@@ -37,15 +43,16 @@ class Main:
             self.mobMenus[i].grid(row = 1, column = i)
         
         #add mobs
-        for i in range(len(self.allEnemies)):
-            self.mobMenus[0].insert(i, self.allEnemies[i].name)
         
-        for i in range(len(self.allFriendlies)):
-            self.mobMenus[3].insert(i, self.allFriendlies[i].name)
+        for i in list(self.allEnemies.keys()):
+            self.mobMenus[0].insert(tk.END, i)
+        
+        for i in list(self.allFriendlies.keys()):
+            self.mobMenus[3].insert(tk.END, i)
 
         #add WEAPONS, part of self.mobMenus since same system
         for i in range(len(self.allWeapons)):
-            self.mobMenus[4].insert(i, self.allWeapons[i].name)
+            self.mobMenus[4].insert(tk.END, self.allWeapons[i].name)
         
         #create buttons to add mobs to current scenario
         addEnemies = tk.Button(self.setupWindow, text="Add Enemy", font=FONT, command = lambda: self.addMob(0, 1))
@@ -115,120 +122,103 @@ class Main:
         
         mobName = self.mobMenus[selectedMenu].get(mobIndecies[0])
         if selectedMenu == 0:
-            for i in self.allEnemies:
-                if i.name == mobName:
-                    self.allEnemies.remove(i)
-                    self.mobMenus[selectedMenu].delete(mobIndecies[0])
-            
-            weaponDicts = [w.playertoDict() for w in self.allEnemies]
-            with open(CURRENT_DIRECTORY + "AllEnemies.json", "w+") as f:
-                json.dump(weaponDicts, f, indent=4)
+            del self.allEnemies[mobName]
+            self.mobMenus[selectedMenu].delete(mobIndecies[0])
+            self.writeMobsToFile(MobType.ENEMY)
             
         elif selectedMenu == 3:
-            for i in self.allFriendlies:
-                if i.name == mobName:
-                    self.allFriendlies.remove(i)
-                    self.mobMenus[selectedMenu].delete(mobIndecies[0])
-
-            weaponDicts = [w.playertoDict() for w in self.allFriendlies]
-            with open(CURRENT_DIRECTORY + "AllFriendlies.json", "w+") as f:
-                json.dump(weaponDicts, f, indent=4)
+            del self.allFriendlies[mobName]
+            self.mobMenus[selectedMenu].delete(mobIndecies[0])
+            self.writeMobsToFile(MobType.FRIENDLY)
 
     def roleplayView(self):
         #get just the selected player objects
-        loadedObjects = []
+        loadedObjects = {}
         playerNames = self.mobMenus[2].get(0, tk.END)
         for nameIndex in range(len(playerNames)):
             name = playerNames[nameIndex]
-            for o in self.allFriendlies:
-                if o.name == name:
-                    #this makes copies of template objects
-                    if "[TEMP]" in name:
-                        #make copy of object
-                        templateCopy = self.deepCopyPlayer(o, self.allFriendlies)
-                        self.allFriendlies.append(templateCopy)
-                        loadedObjects.append(templateCopy)
-                        self.mobMenus[2].delete(nameIndex)
-                        self.mobMenus[2].insert(nameIndex, templateCopy.name)
-                    else:
-                        loadedObjects.append(o)
+            #this makes copies of template objects
+            if "[TEMP]" in name:
+                #make copy of object
+                templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name], self.allFriendlies)
+                self.allFriendlies[templateCopy.name] = templateCopy
+                loadedObjects[templateCopy.name] = templateCopy
+                self.mobMenus[2].delete(nameIndex)
+                self.mobMenus[2].insert(nameIndex, templateCopy.name)
+            else:
+                loadedObjects[name] = self.allFriendlies[name]
         
         #pass objects to display Window
         roleplayView(self.setupWindow, loadedObjects)
 
-        for modifiedPlayer in loadedObjects:
-            mName = modifiedPlayer.name
-            found = False
-            for mob in self.allFriendlies:
-                if mob.name == mName:
-                    found = True
-                    mob = modifiedPlayer
-                    break
+        for modifiedPlayerName in list(loadedObjects.keys()):
+            try:
+                self.allFriendlies[modifiedPlayerName] = loadedObjects[modifiedPlayerName]
+            except:
+                continue
 
-            mobDicts = [player.playertoDict() for player in self.allFriendlies]
-            with open(CURRENT_DIRECTORY + "AllFriendlies.json", "w+") as f:
-                json.dump(mobDicts, f, indent = 4)
+        self.writeMobsToFile(MobType.FRIENDLY)
     
     def battleView(self):
         #get just the selected player objects
-        loadedObjects = []
-        playerNames = self.mobMenus[1].get(0, tk.END)
-        for nameIndex in range(len(playerNames)):
-            name = playerNames[nameIndex]
-            for o in self.allEnemies:
-                if o.name == name:
-                    #this makes copies of template objects
-                    if "[TEMP]" in name:
-                        #make copy of object
-                        templateCopy = copy.deepcopy(o)
-                        tempName = templateCopy.name.replace("[TEMP]", "")
+        loadedObjects = {}
+        friendlyNames = self.mobMenus[2].get(0, tk.END)
+        enemyNames = self.mobMenus[1].get(0, tk.END)
 
-                        #add number to copy to prevent duplicates
-                        count = 0
-                        found = True
-                        while found:
-                            #try next number
-                            found = False
-                            iterator = str("[{}]".format(count))
-                            tempName = tempName.replace(iterator, "")
-                            tempName += "[{}]".format(count+1)
-                            count += 1
-                            #check if name exists
-                            for i in self.allEnemies:
-                                if i.name == tempName:
-                                    found = True
-                                    break
-                            
-                            #we looked through all objects, and didn't find an object with that iteration
-                            #so make a whole new object
-                            if not found:
-                                templateCopy.name = tempName
-                                self.allEnemies.append(templateCopy)
-                                loadedObjects.append(templateCopy)
-                                self.mobMenus[1].delete(nameIndex)
-                                self.mobMenus[1].insert(nameIndex, templateCopy.name)
-                    else:
-                        loadedObjects.append(o)
+        for nameIndex in range(len(friendlyNames)):
+            name = friendlyNames[nameIndex]
+            #this makes copies of template objects
+            if "[TEMP]" in name:
+                #make copy of object
+                templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name], self.allFriendlies)
+                self.allFriendlies[templateCopy.name] = templateCopy
+                loadedObjects[templateCopy.name] = templateCopy
+                self.mobMenus[2].delete(nameIndex)
+                self.mobMenus[2].insert(nameIndex, templateCopy.name)
+            else:
+                loadedObjects[name] = self.allFriendlies[name]
+
+        for nameIndex in range(len(enemyNames)):
+            name = enemyNames[nameIndex]
+            #this makes copies of template objects
+            if "[TEMP]" in name:
+                #make copy of object
+                templateCopy:Player = self.deepCopyPlayer(self.allEnemies[name], self.allEnemies)
+                self.allEnemies[templateCopy.name] = templateCopy
+                loadedObjects[templateCopy.name] = templateCopy
+                self.mobMenus[1].delete(nameIndex)
+                self.mobMenus[1].insert(nameIndex, templateCopy.name)
+            else:
+                loadedObjects[name] = self.allEnemies[name]
         
         #pass objects to display Window
-        roleplayView(self.setupWindow, loadedObjects)
-
-        for modifiedPlayer in loadedObjects:
-            mName = modifiedPlayer.name
-            found = False
-            for mob in self.allEnemies:
-                if mob.name == mName:
-                    found = True
-                    mob = modifiedPlayer
-                    break
-
-            mobDicts = [player.playertoDict() for player in self.allEnemies]
-            with open(CURRENT_DIRECTORY + "AllEnemies.json", "w+") as f:
-                json.dump(mobDicts, f, indent = 4)
+        battleResults = battleView(self.setupWindow, loadedObjects)
+        self.setupWindow.wait_window(battleResults.battleView)
+            
+        print("DONE WAITING")
+        
+        #update objects in memory
+        friendlyNames = list(self.allFriendlies.keys())
+        enemyNames = list(self.allEnemies.keys())
+        for player in list(battleResults.loadedPlayers.keys()):
+            if player in friendlyNames:
+                self.allFriendlies[player] = battleResults.loadedPlayers[player].playerSheet
+            elif player in enemyNames:
+                self.allEnemies[player] = battleResults.loadedPlayers[player].playerSheet
+            else:
+                print(player + " NOT FOUND")
+            
+        #save stats to file
+        self.writeMobsToFile(MobType.ENEMY)
+        self.writeMobsToFile(MobType.FRIENDLY)
     
     def deepCopyPlayer(self, originalObject, objectList):
         templateCopy = copy.deepcopy(originalObject)
         tempName = templateCopy.name.replace("[TEMP]", "")
+
+        #remove other iteration markers
+        pattern = re.compile(r'\[\d+\]')
+        tempName = pattern.sub("", tempName)
 
         #add number to copy to prevent duplicates
         count = 0
@@ -242,7 +232,7 @@ class Main:
             count += 1
             #check if name exists
             for i in objectList:
-                if i.name == tempName:
+                if i == tempName:
                     found = True
                     break
             
@@ -316,13 +306,14 @@ class Main:
             with open(path, "r") as f:
                 playerDicts = json.load(f)
             
-            mobs = []
+            mobs = {}
             for d in playerDicts:
-                mobs.append(Player.playerFromDict(d))
+                playerObject = Player.playerFromDict(d)
+                mobs[playerObject.name] = playerObject
             return mobs
         except Exception as e:
             logging.error(traceback.format_exc())
-            return []
+            return {}
 
     #Add mob from complete list to current selection
     def addMob(self, completeMenu, selectedMenu):
@@ -354,58 +345,26 @@ class Main:
             #copy mob object
             mobObject = None
             if selectedMenu == 0:
-                for o in self.allEnemies:
-                    if o.name == mobName:
-                        mobObject = copy.deepcopy(o)
-                        break
+                mobObject = self.deepCopyPlayer(self.allEnemies[mobName], self.allFriendlies)
             elif selectedMenu == 3:
-                for o in self.allFriendlies:
-                    if o.name == mobName:
-                        mobObject = copy.deepcopy(o)
-                        break
+                mobObject = self.deepCopyPlayer(self.allFriendlies[mobName], self.allFriendlies)
             
             #for some reason, the mob doesn't exist, therefore we exit
             if mobObject == None:
                 return
-            
-            tempName = mobName.replace("[TEMP]", "")
+            mobName = mobObject.name
             #remove any previous iteration markers
-            pattern = re.compile(r'\[\d+\]')
-            tempName = pattern.sub("", tempName)
-
-            #find next available iteration marker
-            count = 0
-            found = True
-            while found:
-                found = False
-                tempName = tempName.replace("[{}]".format(count), "")
-                count += 1
-                tempName += "[{}]".format(count)
-                if selectedMenu == 0:
-                    for o in self.allEnemies:
-                        if o.name == tempName:
-                            found = True
-                            break
-                    
-                elif selectedMenu == 3:
-                    for o in self.allFriendlies:
-                        if o.name == tempName:
-                            found = True
-                            break
-            
-            mobObject.name = tempName
             if selectedMenu == 0:
-                self.allEnemies.append(mobObject)
+                self.allEnemies[mobName] = mobObject
             elif selectedMenu == 3:
-                self.allFriendlies.append(mobObject)
+                self.allFriendlies[mobName] = mobObject
             
-            self.mobMenus[selectedMenu].insert(tk.END, tempName)
+            self.mobMenus[selectedMenu].insert(tk.END, mobName)
                 
     #need to make a "factory" since there are a lot of variables to mess around with
     def createMob(self, completeMenu, edit = False):
+        player = None
         #get DM values for the new Mob
-        player:Player = None
-        playerIndex = 0
         if edit:
             index = self.mobMenus[completeMenu].curselection()
             playerName = self.mobMenus[completeMenu].get(index)
@@ -414,13 +373,12 @@ class Main:
             elif completeMenu == 3:
                 compareObects = self.allFriendlies
             else:
-                compareObects = []
+                compareObects = {}
 
-            for i in range(len(compareObects)):
-                if compareObects[i].name == playerName:
-                    player = compareObects[i]
-                    playerIndex = i
-                    break
+            try:
+                player = compareObects[playerName]
+            except:
+                player = None
         
         factory = MobCreator.MobCreator(self.setupWindow)
         factory.creationWindow(player)
@@ -428,40 +386,36 @@ class Main:
             name = factory.finalMob.name
         except:
             return
-        count = self.mobMenus[completeMenu].index("end")
 
         #update list depending on list, and write to json
         if(completeMenu == 0):
             if edit:
-                self.allEnemies[playerIndex] = factory.finalMob
+                del self.allEnemies[playerName]
+                self.allEnemies[name] = factory.finalMob
                 self.mobMenus[completeMenu].delete(index)
-                self.mobMenus[completeMenu].insert(index, factory.finalMob.name)
+                self.mobMenus[completeMenu].insert(index, name)
             else:
-                for m in self.allEnemies:
-                    if m.name == name:
-                        return
-                self.allEnemies.append(factory.finalMob)
-                self.mobMenus[completeMenu].insert(count, name)
+                if name in self.allEnemies:
+                    return
+                
+                self.allEnemies[name] = factory.finalMob
+                self.mobMenus[completeMenu].insert(tk.END, name)
 
-            mobDicts = [player.playertoDict() for player in self.allEnemies]
-            with open(CURRENT_DIRECTORY + "AllEnemies.json", "w+") as f:
-                json.dump(mobDicts, f, indent = 4)
+            self.writeMobsToFile(MobType.ENEMY)
             
         #update Friendlies list
         elif(completeMenu == 3):
             if edit:
-                self.allFriendlies[playerIndex] = factory.finalMob
+                del self.allFriendlies[playerName]
+                self.allFriendlies[name] = factory.finalMob
                 self.mobMenus[completeMenu].delete(index)
                 self.mobMenus[completeMenu].insert(index, factory.finalMob.name)
             else:
-                for m in self.allFriendlies:
-                    if m.name == name:
+                if name in self.allFriendlies:
                         return
                 self.allFriendlies.append(factory.finalMob)
-                self.mobMenus[completeMenu].insert(count, name)
-            mobDicts = [player.playertoDict() for player in self.allFriendlies]
-            with open(CURRENT_DIRECTORY + "AllFriendlies.json", "w+") as f:
-                json.dump(mobDicts, f, indent = 4)
+                self.mobMenus[completeMenu].insert(tk.END, name)
+            self.writeMobsToFile(MobType.FRIENDLY)
 
     def createWeapon(self, edit = False):
         factory = WeaponFactory()
@@ -496,4 +450,15 @@ class Main:
         with open(CURRENT_DIRECTORY + "AllWeapons.json", "w+") as f:
             json.dump(weaponDicts, f, indent=4)
         
-#Main()
+    def writeMobsToFile(self, signal):
+        if signal == MobType.ENEMY:
+            mobDicts = [player.playertoDict() for player in list(self.allEnemies.values())]
+            with open(CURRENT_DIRECTORY + "AllEnemies.json", "w+") as f:
+                json.dump(mobDicts, f, indent = 4)
+        
+        elif signal == MobType.FRIENDLY:
+            mobDicts = [player.playertoDict() for player in list(self.allFriendlies.values())]
+            with open(CURRENT_DIRECTORY + "AllFriendlies.json", "w+") as f:
+                json.dump(mobDicts, f, indent = 4)
+
+Main()

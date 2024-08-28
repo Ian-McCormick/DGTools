@@ -1,15 +1,22 @@
 import tkinter as tk
-from tkinter import ttk
-from PIL import Image, ImageTk
 import os
 import time
+
+from tkinter import ttk
+from PIL import Image, ImageTk
+from enum import Enum
 
 import Player
 import MobCreator
 from WeaponCreator import Weapon
-import BattleStats
+#import BattleStats
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
+
+class actionOutcomes(Enum):
+    DODGED = "Target Successfully Dodged"
+    MISSED = "Player Missed Target"
+    HIT = "Player Hit Target"
 
 class roleplayView:
     def __init__(self, parent, players):
@@ -21,9 +28,9 @@ class roleplayView:
         self.entryFields = {}
         self.roleplayWindow = tk.Toplevel(parent)
         columnIndex = 0
-        for p in self.loadedPlayers:
-            self.entryFields[p.name] = {}
-            self.displayPlayer(p, columnIndex)
+        for p in list(self.loadedPlayers.keys()):
+            self.entryFields[p] = {}
+            self.displayPlayer(self.loadedPlayers[p], columnIndex)
             columnIndex += 2
         
         submitButton = tk.Button(self.roleplayWindow, text="SUBMIT", command=self.submit)
@@ -116,13 +123,10 @@ class roleplayView:
             self.entryFields[name][atr].grid(row=frameRowIndex, column=1)
 
             frameRowIndex += 1
-     
+    
     def submit(self):
-        print(list(self.entryFields.keys()))
-        for i in range(len(self.loadedPlayers)):
+        for i in self.loadedPlayers:
             player = self.loadedPlayers[i]
-            print(list(self.entryFields[player.name].keys()))
-            print(self.entryFields[player.name][list(self.entryFields[player.name].keys())[0]])
 
             for atr in vars(player.statistics):
                 entryField = self.entryFields[player.name][atr]
@@ -146,13 +150,29 @@ class playerBattleInfo:
         self.previewPhoto: ImageTk.PhotoImage = None
         self.bigPhoto: ImageTk.PhotoImage = None
 
+    def updatePreview(self):
+        for w in self.previewFrame.winfo_children():
+            widgetName = str(w).split(".")[-1]
+            if widgetName == "actionTaken":
+                color = "red" if self.takenAction else "green"
+                w.configure(text = str(self.takenAction), fg = color)
+            elif widgetName == "hpValue":
+                w.configure(text = self.playerSheet.derived.hitpoints)
+            elif widgetName == "sanStat":
+                w.configure(text = self.playerSheet.derived.sanity)
+
+    def setPreviewBackGround(self, color):
+        self.previewFrame.configure(bg=color)
+        for w in self.previewFrame.winfo_children():
+            w.configure(bg = color)
+
 class actionFlowInformation:
     def __init__(self, player):
         self.executor: playerBattleInfo =  player
         self.target: playerBattleInfo = None
         self.weapon: Weapon = None
         self.didTargetDodge:bool = False
-        self.complete: bool = False
+        self.targetNewHealth:str = None
 
     def getExecutorName(self):
         if self.executor == None:
@@ -199,10 +219,13 @@ class actionFlowInformation:
             return "N/A"
         
     def getTargetHealth(self):
-        try:
-            return self.target.playerSheet.derived.hitpoints
-        except:
-            return "N/A"
+        if self.targetNewHealth != None:
+            return self.targetNewHealth
+        else:
+            try:
+                return self.target.playerSheet.derived.hitpoints
+            except:
+                return "N/A"
     
     def getWeaponList(self):
         return ["Unarmed"] + self.executor.playerSheet.weaponInventory
@@ -211,7 +234,7 @@ class battleView:
     def __init__(self, parent, players):
         if len(players) == 0:
             return
-        self.loadedPlayers = {}
+        self.loadedPlayers:playerBattleInfo = {}
 
         self.offensiveActions = ["Aim", "Attack", "Called Shot", "Disarm", "Pin"]
         self.defensiveActions = ["Dodge", "Escape", "Fight Back", "Move", "Wait", "Other"]
@@ -224,11 +247,14 @@ class battleView:
             self.allWeapons[w.name] = w
 
         self.battleView = tk.Toplevel(parent)
+        #parent.wait_window(self.battleView)
         self.battleView.geometry("1000x1000")
 
         #create frame/canvas to place all player canvases
-        self.previewCanvas = tk.Canvas(self.battleView)
-        scrollbar = ttk.Scrollbar(self.battleView, orient="vertical", command=self.previewCanvas.yview)
+        self.controlFrame = tk.Frame(self.battleView)
+        self.controlFrame.grid(row=0, column=0, rowspan=5, sticky="NW")
+        self.previewCanvas = tk.Canvas(self.controlFrame)
+        scrollbar = ttk.Scrollbar(self.controlFrame, orient="vertical", command=self.previewCanvas.yview)
 
         self.previewCanvas.grid(row=0, column=0, sticky="NSEW", padx=0)
         scrollbar.grid(row=0, column=1, sticky="NS")
@@ -241,9 +267,10 @@ class battleView:
         frame_window = self.previewCanvas.create_window((0,0), window=self.previewFrame, anchor="nw")
 
         row = 0
+        sortedPlayers = dict(sorted(players.items(), key=lambda item: int(item[1].statistics.dexterity), reverse=True))
         #populate player previews
-        for p in players:
-            battlePlayer = playerBattleInfo(p)
+        for p in sortedPlayers:
+            battlePlayer = playerBattleInfo(sortedPlayers[p])
             battlePlayer.previewFrame = self.displayPlayerPreview(battlePlayer)
             battlePlayer.previewFrame.grid(row=row, column=0, sticky="NESW")
             self.loadedPlayers[battlePlayer.playerSheet.name] = battlePlayer
@@ -253,7 +280,11 @@ class battleView:
         self.previewCanvas.bind("<Configure>", lambda event: self.previewCanvas.configure(width=self.previewFrame.winfo_width()))
 
         self.detailedPlayerFrame = tk.Frame(self.battleView)
-        self.detailedPlayerFrame.grid(row=0, column=2, rowspan=2)
+        self.detailedPlayerFrame.grid(row=0, column=1, rowspan=2)
+
+        #reset actions button
+        tk.Button(self.controlFrame, text= "Reset Actions", command=self.resetActions).grid(row=1, column=0, sticky="NW")
+        tk.Button(self.controlFrame, text="Close Battle", command=self.closeBattle).grid(row=2, column=0, sticky="NW")
 
     def displayPlayerPreview(self, player:playerBattleInfo) -> tk.Frame:
         frame = tk.Frame(self.previewFrame, highlightbackground="black", highlightthickness=1)
@@ -289,21 +320,16 @@ class battleView:
 
         #bind deltailed view to clicking anywhere in preview
         for w in frame.winfo_children():
-            w.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player.playerSheet.name, frame))
-        frame.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player.playerSheet.name, frame))
+            w.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player.playerSheet.name))
+        frame.bind("<Button-1>", lambda e: self.displaySelectedPlayer(player.playerSheet.name))
 
         return frame
 
-    def displaySelectedPlayer(self, playerName:str, newPreviewFrame:tk.Frame):
+    def displaySelectedPlayer(self, playerName:str):
         player:playerBattleInfo = self.loadedPlayers[playerName]
-        player.takenAction = True
 
-        for w in player.previewFrame.winfo_children():
-            if str(w).split(".")[-1] == "actionTaken":
-                color = "red" if player.takenAction else "green"
-                w.configure(text = str(player.takenAction), fg = color)
+        player.setPreviewBackGround("yellow")
 
-        startTime = time.time()
         name_label_tag_value = "nameValue"
         selectedStats = ["hitpoints", "willpower", "sanity", "breakingpoint"]
         imageRowHeight = len(selectedStats) + 2
@@ -314,14 +340,9 @@ class battleView:
             widgetName = str(w).split(".")[-1]
             if str(w).split(".")[-1] == name_label_tag_value:
                 prevName = w.cget("text")
-                print(self.loadedPlayers[prevName].takenAction)
-                self.loadedPlayers[prevName].previewFrame.update()
-                self.loadedPlayers[prevName].takenAction = False
+                self.loadedPlayers[prevName].setPreviewBackGround("white")
 
             w.destroy()
-        
-        #populate with new player info
-        name = player.playerSheet.name
 
         #draw image
         if player.bigPhoto == None:
@@ -352,12 +373,6 @@ class battleView:
         self.drawSkillsStats(player, imageRowHeight+1)
         self.drawWeaponTable(player, imageRowHeight+2)
         self.drawActionOptions(player, imageRowHeight+3)
-        #print(player.takenAction)
-
-        endTime = time.time()
-        #print(endTime-startTime)
-
-        #add weapons
     
     def drawSkillsStats(self, player:playerBattleInfo, mainRow, startColumn = 0):
         #define how tall and wide we want the table
@@ -524,7 +539,7 @@ class battleView:
 
         yesButton = tk.Button(self.actionWalkthrough, text="Yes", pady=5, command=lambda:self.saveDodge(True))
         yesButton.grid(row = 2, column=0, sticky="EW")
-        noButton = tk.Button(self.actionWalkthrough, text="No", pady=5, command=lambda:self.attackRoll())
+        noButton = tk.Button(self.actionWalkthrough, text="No", pady=5, command=lambda:self.saveDodge(False))
         noButton.grid(row=2, column=1, sticky="EW")
 
         tk.Label(self.actionWalkthrough, pady=10).grid(row=3, column=0)
@@ -534,12 +549,14 @@ class battleView:
     def saveDodge(self, dodgeSuccess):
         self.actionInformation.didTargetDodge = True
         if dodgeSuccess:
-            self.finalizeAction()
+            self.finalizeAction(actionOutcomes.DODGED)
         else:
             self.attackRoll()
 
     def attackRoll(self):
         self.clearWalkthrough()
+        self.actionInformation.targetNewHealth = None
+
         weaponNameLabel = tk.Label(self.actionWalkthrough, text="Selected Weapon: " + self.actionInformation.getWeaponName())
         weaponNameLabel.grid(row=0, column=0, columnspan=2)
 
@@ -554,7 +571,7 @@ class battleView:
 
         yesButton = tk.Button(self.actionWalkthrough, text="Yes", pady=5, command=self.rollDamage)
         yesButton.grid(row = 4, column=0, sticky="EW")
-        noButton = tk.Button(self.actionWalkthrough, text="No (FINAL)", pady=5, command=self.finalizeAction)
+        noButton = tk.Button(self.actionWalkthrough, text="No", pady=5, command=lambda:self.finalizeAction(actionOutcomes.MISSED))
         noButton.grid(row=4, column=1, sticky="EW")
 
         tk.Label(self.actionWalkthrough, pady=10).grid(row=5, column=0)
@@ -587,7 +604,7 @@ class battleView:
         damageEntry.insert(0, self.actionInformation.getTargetHealth())
         damageEntry.grid(row=3, column=1)
 
-        finalizeButton = tk.Button(self.actionWalkthrough, text="FINALIZE", fg="red", command=self.finalizeAction)
+        finalizeButton = tk.Button(self.actionWalkthrough, text="FINALIZE", command=lambda:self.finalizeAction(actionOutcomes.HIT, damageEntry.get()))
         finalizeButton.grid(row=4, column=0, columnspan=2)
 
         tk.Label(self.actionWalkthrough, pady=10).grid(row=3, column=0)
@@ -596,19 +613,72 @@ class battleView:
 
         return
     
-    def finalizeAction(self):
-        print("Finalize")
-        return
+    def finalizeAction(self, outcomeSignal, targetNewHealth = None):
+        self.clearWalkthrough()
+        self.actionInformation.targetNewHealth = targetNewHealth
+
+        tk.Label(self.actionWalkthrough, text="FINALIZE ACTION", font="helvetica 14 bold").grid(row=0, column=0)
+        if outcomeSignal == actionOutcomes.DODGED:
+            outcomeLabel = tk.Label(self.actionWalkthrough, text= "Target successfully dodged")
+            backButton = tk.Button(self.actionWalkthrough, text="Go Back (Dodge Roll)", command=self.executeDodgeRoll)
+        
+        elif outcomeSignal == actionOutcomes.MISSED:
+            outcomeLabel = tk.Label(self.actionWalkthrough, text= "Player Missed Attack")
+            backButton = tk.Button(self.actionWalkthrough, text="Go Back (Attack Roll)", command=self.attackRoll)
+
+        elif outcomeSignal == actionOutcomes.HIT:
+            outcomeLabel = tk.Label(self.actionWalkthrough, text= "Player Successfully attacked")
+            backButton = tk.Button(self.actionWalkthrough, text="Go Back (Damage Roll)", command=self.rollDamage)
+        else:
+            outcomeLabel = tk.Label(self.actionWalkthrough, text= "Wack ass 4th option")
+            backButton = tk.Button(self.actionWalkthrough, text="Go Back (Target Selection)", command=self.targetSelection)
+
+        outcomeLabel.grid(row=1, column=0)
+        tk.Button(self.actionWalkthrough, text="SUBMIT (FINAL)", fg="red", command=self.endOfTurn).grid(row=2, column=0)
+        backButton.grid(row=3, column=0)
+
+    def endOfTurn(self):
+        self.actionWalkthrough.destroy()
+
+        #update actions
+        self.actionInformation.executor.takenAction = True
+        if self.actionInformation.didTargetDodge:
+            self.actionInformation.target.takenAction = True
+
+        #update target health
+        if self.actionInformation.targetNewHealth != None:
+            self.actionInformation.target.playerSheet.derived.hitpoints = self.actionInformation.targetNewHealth
+
+        #update main objects and redraw preview Screens
+        executorName = self.actionInformation.getExecutorName()
+        targetName = self.actionInformation.getTargetName()
+
+        self.loadedPlayers[executorName] = self.actionInformation.executor
+        self.loadedPlayers[executorName].updatePreview()
+        if targetName != None:
+            self.loadedPlayers[targetName] = self.actionInformation.target
+            self.loadedPlayers[targetName].updatePreview()
+        
+        playerNames = list(self.loadedPlayers.keys())
+        curPlayerIndex = playerNames.index(executorName)
+        if curPlayerIndex +1 < len(playerNames):
+            self.displaySelectedPlayer(playerNames[curPlayerIndex+1])
 
     def clearWalkthrough(self):
         for w in self.actionWalkthrough.winfo_children():
             w.destroy()
 
-    
+    def resetActions(self):
+        print(self.loadedPlayers)
+        for p in self.loadedPlayers:
+            self.loadedPlayers[p].takenAction = False
+            self.loadedPlayers[p].updatePreview()
 
+    def closeBattle(self):
+        self.battleView.destroy()
 
-root = tk.Tk()
-root.wm_state('iconic')
-players = BattleStats.Main.loadPlayerObjectJson(None, CURRENT_DIRECTORY +"AllFriendlies.json")
-battleView(root, players)
-root.mainloop()
+#root = tk.Tk()
+#root.wm_state('iconic')
+#players = BattleStats.Main.loadPlayerObjectJson(None, CURRENT_DIRECTORY +"AllFriendlies.json")
+#battleView(root, players)
+#root.mainloop()
