@@ -236,8 +236,8 @@ class battleView:
             return
         self.loadedPlayers:playerBattleInfo = {}
 
-        self.offensiveActions = ["Aim", "Attack", "Called Shot", "Disarm", "Pin"]
-        self.defensiveActions = ["Dodge", "Escape", "Fight Back", "Move", "Wait", "Other"]
+        self.offensiveActions = [ "Attack", "Called Shot", "Fight Back", "Disarm", "Pin"]
+        self.defensiveActions = ["Aim", "Dodge", "Escape", "Move", "Wait", "Other"]
         self.actionSeperators = ["-OFFENSIVE ACTIONS-", "-DEFENSIVE ACTIONS-"]
         self.combinedActions = [self.actionSeperators[0]] + self.offensiveActions + [self.actionSeperators[1]] + self.defensiveActions
 
@@ -444,7 +444,7 @@ class battleView:
         actionLabel.grid(row=startRow, column=0, sticky="w")
 
         actionOption = tk.StringVar()
-        actionOption.set(self.combinedActions[2])   #default to Attack
+        actionOption.set(self.combinedActions[1])   #default to Attack
 
         actionMenu = tk.OptionMenu(self.detailedPlayerFrame, actionOption, *self.combinedActions)
         actionMenu.grid(row=startRow, column = 1, sticky="w")
@@ -462,9 +462,14 @@ class battleView:
         if actionChoice in self.offensiveActions:
             self.targetSelection()
         else:
-            print(actionChoice)
+            self.defensiveRoll()
 
         self.battleView.wait_window(self.actionWalkthrough)
+
+    def defensiveRoll(self):
+        self.clearWalkthrough()
+        tk.Label(self.actionWalkthrough, text="Your player has chosen a context heavy action\n have the playe roll (if applicable) and make note of it.").grid(row=0, column=0)
+        tk.Button(self.actionWalkthrough, text="Continue", command=self.endOfTurn).grid(row=1, column=0, sticky="NESW")
 
     def targetSelection(self):
         self.clearWalkthrough()
@@ -472,7 +477,7 @@ class battleView:
         targetLabel = tk.Label(self.actionWalkthrough, text="Select Target: ")
         targetLabel.grid(row=0, column=0)
 
-        mobs = list(self.loadedPlayers.keys())
+        mobs = list(self.loadedPlayers.keys()) + ["Other"]
         mobs.remove(self.actionInformation.getExecutorName())
         targetString = tk.StringVar()
         if self.actionInformation.target == None:
@@ -508,7 +513,6 @@ class battleView:
         
         try:
             self.actionInformation.target = self.loadedPlayers[targetName]
-            print("Taken Action: " + str(self.actionInformation.target.takenAction))
         except:
             self.actionInformation.target = None
         self.dodgeSelection()
@@ -519,7 +523,11 @@ class battleView:
         questionLabel = tk.Label(self.actionWalkthrough, text="Does the target attempt to dodge?", font="helvetica 10 bold")
         questionLabel.grid(row=0, column=0, columnspan=2)
 
-        if self.actionInformation.target.takenAction == True:
+        if self.actionInformation.target == None:
+            self.attackRoll()
+            return
+
+        elif self.actionInformation.target.takenAction == True:
             warningLabel = tk.Label(self.actionWalkthrough, text="Target has already taken action\n RaW they cannot dodge", fg="red")
             warningLabel.grid(row=1, column=0, columnspan=2)
 
@@ -578,6 +586,9 @@ class battleView:
         if self.actionInformation.didTargetDodge:
             backCommand = self.executeDodgeRoll
             backText = "(Dodge Roll)"
+        elif self.actionInformation.target == None:
+            backCommand = self.targetSelection
+            backText = "(Target Selection)"
         else:
             backCommand = self.dodgeSelection
             backText = "(Dodge Choice)"
@@ -646,7 +657,7 @@ class battleView:
             self.actionInformation.target.takenAction = True
 
         #update target health
-        if self.actionInformation.targetNewHealth != None:
+        if self.actionInformation.targetNewHealth != "N/A":
             self.actionInformation.target.playerSheet.derived.hitpoints = self.actionInformation.targetNewHealth
 
         #update main objects and redraw preview Screens
@@ -655,6 +666,7 @@ class battleView:
 
         self.loadedPlayers[executorName] = self.actionInformation.executor
         self.loadedPlayers[executorName].updatePreview()
+
         if targetName != None:
             self.loadedPlayers[targetName] = self.actionInformation.target
             self.loadedPlayers[targetName].updatePreview()
@@ -669,7 +681,6 @@ class battleView:
             w.destroy()
 
     def resetActions(self):
-        print(self.loadedPlayers)
         for p in self.loadedPlayers:
             self.loadedPlayers[p].takenAction = False
             self.loadedPlayers[p].updatePreview()

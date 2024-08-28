@@ -194,8 +194,6 @@ class Main:
         #pass objects to display Window
         battleResults = battleView(self.setupWindow, loadedObjects)
         self.setupWindow.wait_window(battleResults.battleView)
-            
-        print("DONE WAITING")
         
         #update objects in memory
         friendlyNames = list(self.allFriendlies.keys())
@@ -250,10 +248,8 @@ class Main:
         
         #grab the weapon from the list
         weaponName = self.mobMenus[4].get(wepSelectionIndex[0])
-        #print(weaponName)
         wepObject = None
         for wep in self.allWeapons:
-           #print(wep.name)
             if weaponName == wep.name:
                 wepObject = wep
         
@@ -345,7 +341,7 @@ class Main:
             #copy mob object
             mobObject = None
             if selectedMenu == 0:
-                mobObject = self.deepCopyPlayer(self.allEnemies[mobName], self.allFriendlies)
+                mobObject = self.deepCopyPlayer(self.allEnemies[mobName], self.allEnemies)
             elif selectedMenu == 3:
                 mobObject = self.deepCopyPlayer(self.allFriendlies[mobName], self.allFriendlies)
             
@@ -356,8 +352,10 @@ class Main:
             #remove any previous iteration markers
             if selectedMenu == 0:
                 self.allEnemies[mobName] = mobObject
+                self.writeMobsToFile(MobType.ENEMY)
             elif selectedMenu == 3:
                 self.allFriendlies[mobName] = mobObject
+                self.writeMobsToFile(MobType.FRIENDLY)
             
             self.mobMenus[selectedMenu].insert(tk.END, mobName)
                 
