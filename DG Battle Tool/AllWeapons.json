@@ -1,28 +1,67 @@
 [
     {
-        "name": "asdf",
+        "name": "Light Pistol",
+        "skill": "firearms",
+        "damage": [
+            "1",
+            "8",
+            "0"
+        ],
+        "lethality": "0",
+        "armorPiercing": "0",
+        "radius": "0",
+        "notes": "\n"
+    },
+    {
+        "name": "Pistol",
+        "skill": "firearms",
+        "damage": [
+            "1",
+            "10",
+            "0"
+        ],
+        "lethality": "0",
+        "armorPiercing": "0",
+        "radius": "0",
+        "notes": "\n"
+    },
+    {
+        "name": "Carbine",
+        "skill": "firearms",
+        "damage": [
+            "1",
+            "12",
+            "0"
+        ],
+        "lethality": "0",
+        "armorPiercing": "0",
+        "radius": "0",
+        "notes": "\n"
+    },
+    {
+        "name": "Rifle",
+        "skill": "firearms",
+        "damage": [
+            "1",
+            "12",
+            "2"
+        ],
+        "lethality": "10",
+        "armorPiercing": "0",
+        "radius": "3",
+        "notes": "\n"
+    },
+    {
+        "name": "Shotgun",
         "skill": "firearms",
         "damage": [
             "2",
-            "6",
-            "2"
-        ],
-        "lethality": "1",
-        "armorPiercing": "2",
-        "radius": "3",
-        "notes": "I hope this works\n"
-    },
-    {
-        "name": "pistol",
-        "skill": "melee",
-        "damage": [
-            "2",
-            "6",
+            "8",
             "0"
         ],
-        "lethality": "1",
-        "armorPiercing": "2",
-        "radius": "3",
-        "notes": "please lord\n"
+        "lethality": "0",
+        "armorPiercing": "0",
+        "radius": "0",
+        "notes": "\n\n"
     }
 ]

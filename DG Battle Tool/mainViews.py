@@ -228,13 +228,13 @@ class actionFlowInformation:
                 return "N/A"
     
     def getWeaponList(self):
-        return ["Unarmed"] + self.executor.playerSheet.weaponInventory
+        return list(self.executor.playerSheet.weaponInventory) + ["Unarmed"]
 
 class battleView:
     def __init__(self, parent, players):
         if len(players) == 0:
             return
-        self.loadedPlayers:playerBattleInfo = {}
+        self.loadedPlayers:dict[playerBattleInfo] = {}
 
         self.offensiveActions = [ "Attack", "Called Shot", "Fight Back", "Disarm", "Pin"]
         self.defensiveActions = ["Aim", "Dodge", "Escape", "Move", "Wait", "Other"]
@@ -657,7 +657,7 @@ class battleView:
             self.actionInformation.target.takenAction = True
 
         #update target health
-        if self.actionInformation.targetNewHealth != "N/A":
+        if self.actionInformation.targetNewHealth != "N/A" and self.actionInformation.targetNewHealth != None:
             self.actionInformation.target.playerSheet.derived.hitpoints = self.actionInformation.targetNewHealth
 
         #update main objects and redraw preview Screens

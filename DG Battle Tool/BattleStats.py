@@ -104,11 +104,14 @@ class Main:
         editWeapon.grid(row=3, column=4)
 
         #Main view Buttons
-        roleplayView = tk.Button(self.setupWindow, text="Normal Play", font=FONT, command=lambda: self.roleplayView())
+        roleplayView = tk.Button(self.setupWindow, text="Roeplay (Enemies)", font=FONT, command=lambda: self.roleplayView(1))
         roleplayView.grid(row=3, column=1)
 
+        roleplayView = tk.Button(self.setupWindow, text="Roleplay (Friendlies)", font=FONT, command=lambda: self.roleplayView(2))
+        roleplayView.grid(row=3, column=2)
+
         battleView = tk.Button(self.setupWindow, text="Battle View", font=FONT, command=lambda: self.battleView())
-        battleView.grid(row=3, column=2)
+        battleView.grid(row=4, column=1, columnspan=2, sticky="NESW")
 
         self.mobMenus[4].bind("<<ListboxSelect>>", self.updateWeaponView)
 
@@ -131,39 +134,53 @@ class Main:
             self.mobMenus[selectedMenu].delete(mobIndecies[0])
             self.writeMobsToFile(MobType.FRIENDLY)
 
-    def roleplayView(self):
+    def roleplayView(self, selectedMenu):
         #get just the selected player objects
         loadedObjects = {}
-        playerNames = self.mobMenus[2].get(0, tk.END)
+        playerNames = self.mobMenus[selectedMenu].get(0, tk.END)
         for nameIndex in range(len(playerNames)):
             name = playerNames[nameIndex]
             #this makes copies of template objects
             if "[TEMP]" in name:
                 #make copy of object
                 templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name], self.allFriendlies)
-                self.allFriendlies[templateCopy.name] = templateCopy
+                if selectedMenu == 2:
+                    self.allFriendlies[templateCopy.name] = templateCopy
+                elif selectedMenu == 1:
+                    self.allEnemies[templateCopy.name] = templateCopy
                 loadedObjects[templateCopy.name] = templateCopy
-                self.mobMenus[2].delete(nameIndex)
-                self.mobMenus[2].insert(nameIndex, templateCopy.name)
+                self.mobMenus[selectedMenu].delete(nameIndex)
+                self.mobMenus[selectedMenu].insert(nameIndex, templateCopy.name)
             else:
-                loadedObjects[name] = self.allFriendlies[name]
+                if selectedMenu == 2:
+                    loadedObjects[name] = self.allFriendlies[name]
+                elif selectedMenu == 1:
+                    loadedObjects[name] = self.allEnemies[name]
         
         #pass objects to display Window
         roleplayView(self.setupWindow, loadedObjects)
 
         for modifiedPlayerName in list(loadedObjects.keys()):
             try:
-                self.allFriendlies[modifiedPlayerName] = loadedObjects[modifiedPlayerName]
+                if selectedMenu == 2:
+                    self.allFriendlies[modifiedPlayerName] = loadedObjects[modifiedPlayerName]
+                elif selectedMenu == 1:
+                    self.allEnemies[modifiedPlayerName] = loadedObjects[modifiedPlayerName]
             except:
                 continue
-
-        self.writeMobsToFile(MobType.FRIENDLY)
+        if selectedMenu == 2:
+            self.writeMobsToFile(MobType.FRIENDLY)
+        elif selectedMenu == 1:
+            self.writeMobsToFile(MobType.ENEMY)
     
     def battleView(self):
         #get just the selected player objects
         loadedObjects = {}
         friendlyNames = self.mobMenus[2].get(0, tk.END)
         enemyNames = self.mobMenus[1].get(0, tk.END)
+
+        if len(friendlyNames) + len(enemyNames) <= 0:
+            return
 
         for nameIndex in range(len(friendlyNames)):
             name = friendlyNames[nameIndex]
@@ -411,7 +428,7 @@ class Main:
             else:
                 if name in self.allFriendlies:
                         return
-                self.allFriendlies.append(factory.finalMob)
+                self.allFriendlies[name] = factory.finalMob
                 self.mobMenus[completeMenu].insert(tk.END, name)
             self.writeMobsToFile(MobType.FRIENDLY)
 
