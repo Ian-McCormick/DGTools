@@ -134,6 +134,8 @@ class Main:
             self.mobMenus[selectedMenu].delete(mobIndecies[0])
             self.writeMobsToFile(MobType.FRIENDLY)
 
+        self.setMenuSelection(selectedMenu, mobIndecies[0])   
+
     def roleplayView(self, selectedMenu):
         #get just the selected player objects
         loadedObjects = {}
@@ -143,7 +145,7 @@ class Main:
             #this makes copies of template objects
             if "[TEMP]" in name:
                 #make copy of object
-                templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name], self.allFriendlies)
+                templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name])
                 if selectedMenu == 2:
                     self.allFriendlies[templateCopy.name] = templateCopy
                 elif selectedMenu == 1:
@@ -187,7 +189,7 @@ class Main:
             #this makes copies of template objects
             if "[TEMP]" in name:
                 #make copy of object
-                templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name], self.allFriendlies)
+                templateCopy:Player = self.deepCopyPlayer(self.allFriendlies[name])
                 self.allFriendlies[templateCopy.name] = templateCopy
                 loadedObjects[templateCopy.name] = templateCopy
                 self.mobMenus[2].delete(nameIndex)
@@ -200,7 +202,7 @@ class Main:
             #this makes copies of template objects
             if "[TEMP]" in name:
                 #make copy of object
-                templateCopy:Player = self.deepCopyPlayer(self.allEnemies[name], self.allEnemies)
+                templateCopy:Player = self.deepCopyPlayer(self.allEnemies[name])
                 self.allEnemies[templateCopy.name] = templateCopy
                 loadedObjects[templateCopy.name] = templateCopy
                 self.mobMenus[1].delete(nameIndex)
@@ -209,7 +211,7 @@ class Main:
                 loadedObjects[name] = self.allEnemies[name]
         
         #pass objects to display Window
-        battleResults = battleView(self.setupWindow, loadedObjects)
+        battleResults = battleView(self.setupWindow, loadedObjects, friendlyNames)
         self.setupWindow.wait_window(battleResults.battleView)
         
         #update objects in memory
@@ -227,35 +229,43 @@ class Main:
         self.writeMobsToFile(MobType.ENEMY)
         self.writeMobsToFile(MobType.FRIENDLY)
     
-    def deepCopyPlayer(self, originalObject, objectList):
+    def deepCopyPlayer(self, originalObject):
         templateCopy = copy.deepcopy(originalObject)
         tempName = templateCopy.name.replace("[TEMP]", "")
 
         #remove other iteration markers
+        tempName = self.checkPlayerName(tempName)
+        templateCopy.name = tempName
+        return templateCopy
+
+    def checkPlayerName(self, name, count = 0, originalPlayer:Player = None):
+        allNames = list(self.allFriendlies.keys()) + list(self.allEnemies.keys())
+        if originalPlayer != None:
+            allNames.remove(originalPlayer.name)
+        
+        if not (name in allNames):
+            return name
+
         pattern = re.compile(r'\[\d+\]')
-        tempName = pattern.sub("", tempName)
+        name = pattern.sub("", name)
 
         #add number to copy to prevent duplicates
-        count = 0
         found = True
         while found:
             #try next number
             found = False
             iterator = str("[{}]".format(count))
-            tempName = tempName.replace(iterator, "")
-            tempName += "[{}]".format(count+1)
+            name = name.replace(iterator, "")
+            name += "[{}]".format(count+1)
             count += 1
             #check if name exists
-            for i in objectList:
-                if i == tempName:
-                    found = True
-                    break
+            if name in allNames:
+                found = True
             
             #we looked through all objects, and didn't find an object with that iteration
             #so make a whole new object
             if not found:
-                templateCopy.name = tempName
-                return templateCopy
+                return name
 
     def updateWeaponView(self, event):
         #make sure a weeapon is selected
@@ -330,7 +340,9 @@ class Main:
 
     #Add mob from complete list to current selection
     def addMob(self, completeMenu, selectedMenu):
+        lastIndex = 0
         for i in self.mobMenus[completeMenu].curselection():
+            lastIndex = i
             #add mob to selection list
             mob = self.mobMenus[completeMenu].get(i)
             self.mobMenus[selectedMenu].insert(tk.END, mob)
@@ -338,16 +350,23 @@ class Main:
             #if mob is not a template, remove it from selection
             if "[TEMP]" not in mob:
                 self.mobMenus[completeMenu].delete(i)
+        
+        self.setMenuSelection(completeMenu, lastIndex)
+
         return
     
     #remove a mob from selection
     def removeMob(self, selectedMenu, completeMenu):
+        lastIndex = 0
         for i in self.mobMenus[selectedMenu].curselection():
+            lastIndex = i
             mob = self.mobMenus[selectedMenu].get(i)
             if "[TEMP]" not in mob:
                 self.mobMenus[completeMenu].insert(tk.END, mob)
 
             self.mobMenus[selectedMenu].delete(i)
+
+        self.setMenuSelection(selectedMenu, lastIndex)
         return
     
     def duplicateMob(self, selectedMenu):
@@ -358,9 +377,9 @@ class Main:
             #copy mob object
             mobObject = None
             if selectedMenu == 0:
-                mobObject = self.deepCopyPlayer(self.allEnemies[mobName], self.allEnemies)
+                mobObject = self.deepCopyPlayer(self.allEnemies[mobName])
             elif selectedMenu == 3:
-                mobObject = self.deepCopyPlayer(self.allFriendlies[mobName], self.allFriendlies)
+                mobObject = self.deepCopyPlayer(self.allFriendlies[mobName])
             
             #for some reason, the mob doesn't exist, therefore we exit
             if mobObject == None:
@@ -399,9 +418,12 @@ class Main:
         factory.creationWindow(player)
         try:
             name = factory.finalMob.name
+            name = self.checkPlayerName(name, originalPlayer=player)
         except:
+            print("name Error")
             return
 
+        factory.finalMob.name = name
         #update list depending on list, and write to json
         if(completeMenu == 0):
             if edit:
@@ -410,9 +432,6 @@ class Main:
                 self.mobMenus[completeMenu].delete(index)
                 self.mobMenus[completeMenu].insert(index, name)
             else:
-                if name in self.allEnemies:
-                    return
-                
                 self.allEnemies[name] = factory.finalMob
                 self.mobMenus[completeMenu].insert(tk.END, name)
 
@@ -424,10 +443,8 @@ class Main:
                 del self.allFriendlies[playerName]
                 self.allFriendlies[name] = factory.finalMob
                 self.mobMenus[completeMenu].delete(index)
-                self.mobMenus[completeMenu].insert(index, factory.finalMob.name)
+                self.mobMenus[completeMenu].insert(index, name)
             else:
-                if name in self.allFriendlies:
-                        return
                 self.allFriendlies[name] = factory.finalMob
                 self.mobMenus[completeMenu].insert(tk.END, name)
             self.writeMobsToFile(MobType.FRIENDLY)
@@ -475,5 +492,24 @@ class Main:
             mobDicts = [player.playertoDict() for player in list(self.allFriendlies.values())]
             with open(CURRENT_DIRECTORY + "AllFriendlies.json", "w+") as f:
                 json.dump(mobDicts, f, indent = 4)
+    
+    def setMenuSelection(self, menu, index = 0):
+        self.mobMenus[menu].select_clear(0, tk.END)
+        if index == 0:
+            try:
+                self.mobMenus[menu].select_set(0)
+                self.mobMenus[menu].see(0)
+            except:
+                return
+    
+        index = index -1
+        while index > -1:
+            try:
+                self.mobMenus[menu].select_set(index)
+                self.mobMenus[menu].see(index)
+                return
+            except:
+                index -= 1
+                continue
 
 Main()

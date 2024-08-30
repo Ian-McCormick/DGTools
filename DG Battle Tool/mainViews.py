@@ -43,7 +43,7 @@ class roleplayView:
         name = player.name
 
         #add player photo
-        image = Image.open(player.iconPath).resize((100, 100))
+        image = Image.open(player.getIconPath()).resize((100, 100))
         self.playerPhotos[name] = ImageTk.PhotoImage(image)
         photoLabel = tk.Label(self.roleplayWindow, image=self.playerPhotos[name])
         photoLabel.grid(row=0, column=columnIndex)
@@ -143,8 +143,9 @@ class roleplayView:
         return
 
 class playerBattleInfo:
-    def __init__(self, player):
+    def __init__(self, player, isEnemy):
         self.playerSheet:Player = player
+        self.isEnemy:bool = isEnemy
         self.takenAction:bool = False
         self.previewFrame:tk.Frame = None
         self.previewPhoto: ImageTk.PhotoImage = None
@@ -231,7 +232,7 @@ class actionFlowInformation:
         return list(self.executor.playerSheet.weaponInventory) + ["Unarmed"]
 
 class battleView:
-    def __init__(self, parent, players):
+    def __init__(self, parent, players, friendlyNames):
         if len(players) == 0:
             return
         self.loadedPlayers:dict[playerBattleInfo] = {}
@@ -270,7 +271,10 @@ class battleView:
         sortedPlayers = dict(sorted(players.items(), key=lambda item: int(item[1].statistics.dexterity), reverse=True))
         #populate player previews
         for p in sortedPlayers:
-            battlePlayer = playerBattleInfo(sortedPlayers[p])
+            isEnemy = True
+            if p in friendlyNames:
+                isEnemy = False
+            battlePlayer = playerBattleInfo(sortedPlayers[p], isEnemy)
             battlePlayer.previewFrame = self.displayPlayerPreview(battlePlayer)
             battlePlayer.previewFrame.grid(row=row, column=0, sticky="NESW")
             self.loadedPlayers[battlePlayer.playerSheet.name] = battlePlayer
@@ -288,15 +292,16 @@ class battleView:
 
     def displayPlayerPreview(self, player:playerBattleInfo) -> tk.Frame:
         frame = tk.Frame(self.previewFrame, highlightbackground="black", highlightthickness=1)
+        nameColor = "red" if player.isEnemy == True else "Green"
 
         #make photo for player
-        image = Image.open(player.playerSheet.iconPath).resize((75, 75))
+        image = Image.open(player.playerSheet.getIconPath()).resize((75, 75))
         player.previewPhoto = ImageTk.PhotoImage(image)
         photoLabel = tk.Label(frame, image=player.previewPhoto)
         photoLabel.grid(row=0, column=0, rowspan=4, sticky="W")
 
         #display stat labels
-        nameTag = tk.Label(frame, text="Name:")
+        nameTag = tk.Label(frame, text="Name:", fg = nameColor)
         hpTag = tk.Label(frame, text="HP:")
         sanTag = tk.Label(frame, text="SAN:")
         actionTakenTag = tk.Label(frame, text="Action Taken: ")
@@ -307,7 +312,7 @@ class battleView:
         actionTakenTag.grid(row=3, column=1, sticky="w")
 
         #display stat number
-        nameStat = tk.Label(frame, text=player.playerSheet.name, name="nameValue")
+        nameStat = tk.Label(frame, text=player.playerSheet.name, name="nameValue", fg = nameColor)
         hpStat = tk.Label(frame, text=player.playerSheet.derived.hitpoints, name="hpValue")
         sanStat = tk.Label(frame, text=player.playerSheet.derived.sanity, name="sanStat")
         color = "red" if player.takenAction else "green"
@@ -346,7 +351,7 @@ class battleView:
 
         #draw image
         if player.bigPhoto == None:
-            image = Image.open(player.playerSheet.iconPath).resize((200, 200))
+            image = Image.open(player.playerSheet.getIconPath()).resize((200, 200))
             player.bigPhoto = ImageTk.PhotoImage(image)
         photoLabel = tk.Label(self.detailedPlayerFrame, image=player.bigPhoto)
         photoLabel.grid(row=0, column=0, columnspan=4, rowspan=imageRowHeight, sticky="W")

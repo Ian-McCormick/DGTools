@@ -27,6 +27,7 @@ class MobCreator:
         self.statEntries = []
         self.derivedEntries = []
         self.skillEntries = []
+        self.ALL_FRIENDLIES = []
 
     #set up the actial creation window
     def creationWindow(self, player = None):
@@ -38,8 +39,8 @@ class MobCreator:
         if (player is None):
             image = Image.open(self.mobPhotoPath).resize((100,100))
         else:
-            self.mobPhotoPath = player.iconPath
-            image = Image.open(player.iconPath).resize((100,100))
+            self.mobPhotoPath = player.getIconPath()
+            image = Image.open(player.getIconPath()).resize((100,100))
 
         self.photo = ImageTk.PhotoImage(image)
         self.photoLabel = tk.Label(self.createWindow, image= self.photo)

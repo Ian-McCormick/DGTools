@@ -2,8 +2,6 @@ import os
 import fitz
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "\\"
-SAMPLE = CURRENT_DIRECTORY + "Copy of Arnoux, Zachary S..pdf"
-SAMPLE2 = CURRENT_DIRECTORY + "Blaine, Lucas Redux.pdf"
 
 class Statistics:
     def __init__(self):
@@ -239,6 +237,13 @@ class Player:
         skills = Skills()
         skills.fromDict(d["skills"])
         return Player(name, iconPath, armor, weapons, statistics, derived, skills)
+    
+    def getIconPath(self):
+        try:
+            open(self.iconPath)
+            return self.iconPath
+        except:
+            return CURRENT_DIRECTORY + "Photos\\default.png"
 
 #Arnoux = Player.loadFromPDF(None, SAMPLE, 3)
 
