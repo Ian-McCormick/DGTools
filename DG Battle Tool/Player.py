@@ -25,7 +25,10 @@ class Statistics:
     
     def fromDict(self, d):
         for key, value in d.items():
-            setattr(self, key, value)
+            try:
+                setattr(self, key, value)
+            except:
+                setattr(self, key, "0")
 
 class DerivedStats:
     def __init__(self):
@@ -51,51 +54,54 @@ class DerivedStats:
     
     def fromDict(self, d):
         for key, value in d.items():
-            setattr(self, key, value)
+            try:
+                setattr(self, key, value)
+            except:
+                setattr(self, key, "0")
 
 class Skills(object):
     def __init__(self):
-        self.accounting = 0
-        self.alertness = 0
+        self.accounting = 10
+        self.alertness = 20
         self.anthropology = 0
         self.archeology = 0
         self.art = 0
         self.artillery = 0
-        self.athletics = 0
-        self.bureaucracy = 0
+        self.athletics = 30
+        self.bureaucracy = 10
         self.computerScience = 0
         self.craft = 0
-        self.criminology = 0
+        self.criminology = 10
         self.demolitions = 0
-        self.disguise = 0
-        self.dodge = 0
-        self.drive = 0
-        self.firearms = 0
-        self.firstAid = 0
+        self.disguise = 10
+        self.dodge = 30
+        self.drive = 20
+        self.firearms = 20
+        self.firstAid = 10
         self.forensics = 0
         self.heavyMachinery = 0
         self.heavyWeapons = 0
-        self.history = 0
-        self.humint = 0
+        self.history = 10
+        self.humint = 10
         self.law = 0
         self.medicine = 0
-        self.meleeWeapons = 0
+        self.meleeWeapons = 30
         self.militaryScience = 0
-        self.navigate = 0
-        self.occult = 0
-        self.persuade = 0
+        self.navigate = 10
+        self.occult = 10
+        self.persuade = 20
         self.pharmacy = 0
         self.pilot = 0
-        self.psychotherapy = 0
-        self.ride = 0
+        self.psychotherapy = 10
+        self.ride = 10
         self.science = 0
-        self.search = 0
+        self.search = 20
         self.sigint = 0
-        self.stealth = 0
+        self.stealth = 10
         self.surgery = 0
-        self.survival = 0
-        self.swim = 0
-        self.unarmedCombat = 0
+        self.survival = 10
+        self.swim = 20
+        self.unarmedCombat = 40
         self.unnatural = 0
 
     def loadFromArray(self, array):
@@ -117,7 +123,10 @@ class Skills(object):
     
     def fromDict(self, d):
         for key, value in d.items():
-            setattr(self, key, value)
+            try:
+                setattr(self, key, value)
+            except:
+                setattr(self, key, "0")
 
 class Player:
     def __init__(self, name, iconPath, armor, weapons, stats, derStats, skills):
@@ -224,10 +233,30 @@ class Player:
         }
     
     def playerFromDict(d):
-        name = d["name"]
-        iconPath = d["iconPath"]
-        armor = d["armor"]
-        weapons = d["weapons"]
+        try:
+            name = d["name"]
+        except:
+            print("Failed to load name from JSON")
+            name = "N/A"
+        
+        try:
+            iconPath = d["iconPath"]
+        except:
+            print("Failed to load icon Path from JSON")
+            iconPath = CURRENT_DIRECTORY + "Photos\\default.png"
+        
+        try:
+            armor = d["armor"]
+        except:
+            print("Failed to load armor from JSON")
+            armor = "N/A"
+        
+        try:
+            weapons = d["weapons"]
+        except:
+            print("Failed to load weapons from JSON")
+            weapons = ["Unarmed"]
+        
         statistics = Statistics()
         statistics.fromDict(d["statistics"])
 
